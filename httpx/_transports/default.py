@@ -189,7 +189,7 @@ class HTTPTransport(BaseTransport):
                 http2=http2,
                 socket_options=socket_options,
             )
-        elif proxy.url.scheme == "socks5":
+        elif proxy.url.scheme in ("socks5", "socks5h"):
             try:
                 import socksio  # noqa
             except ImportError:  # pragma: no cover
@@ -215,8 +215,8 @@ class HTTPTransport(BaseTransport):
             )
         else:  # pragma: no cover
             raise ValueError(
-                "Proxy protocol must be either 'http', 'https', or 'socks5',"
-                f" but got {proxy.url.scheme!r}."
+                "Proxy protocol must be either 'http', 'https', 'socks5', or "
+                f"'socks5h', but got {proxy.url.scheme!r}."
             )
 
     def __enter__(self: T) -> T:  # Use generics for subclass support.
@@ -338,7 +338,7 @@ class AsyncHTTPTransport(AsyncBaseTransport):
                 http2=http2,
                 socket_options=socket_options,
             )
-        elif proxy.url.scheme == "socks5":
+        elif proxy.url.scheme in ("socks5", "socks5h"):
             try:
                 import socksio  # noqa
             except ImportError:  # pragma: no cover
@@ -364,8 +364,8 @@ class AsyncHTTPTransport(AsyncBaseTransport):
             )
         else:  # pragma: no cover
             raise ValueError(
-                "Proxy protocol must be either 'http', 'https', or 'socks5',"
-                " but got {proxy.url.scheme!r}."
+                "Proxy protocol must be either 'http', 'https', 'socks5', or "
+                f"'socks5h', but got {proxy.url.scheme!r}."
             )
 
     async def __aenter__(self: A) -> A:  # Use generics for subclass support.

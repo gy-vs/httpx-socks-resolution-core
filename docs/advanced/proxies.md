@@ -81,3 +81,10 @@ You can now configure a client to make requests via a proxy using the SOCKS prot
 ```python
 httpx.Client(proxy='socks5://user:pass@host:port')
 ```
+
+Use `socks5h://` if you want the proxy to resolve the target hostname remotely,
+instead of having it resolved locally before connecting:
+
+```python
+httpx.Client(proxy='socks5h://user:pass@host:port')
+```

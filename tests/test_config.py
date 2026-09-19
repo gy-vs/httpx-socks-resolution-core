@@ -190,6 +190,25 @@ def test_invalid_proxy_scheme():
         httpx.Proxy("invalid://example.com")
 
 
+def test_socks_proxy_schemes():
+    for scheme in ("socks5", "socks5h"):
+        proxy = httpx.Proxy(f"{scheme}://example.com")
+        assert str(proxy.url) == f"{scheme}://example.com"
+        assert proxy.url.scheme == scheme
+        assert proxy.auth is None
+
+
+def test_socks5h_proxy_with_auth_from_url():
+    proxy = httpx.Proxy("socks5h://username:password@[::1]:1080")
+
+    assert str(proxy.url) == "socks5h://[::1]:1080"
+    assert proxy.url.scheme == "socks5h"
+    assert proxy.auth == ("username", "password")
+    assert repr(proxy) == (
+        "Proxy('socks5h://[::1]:1080', auth=('username', '********'))"
+    )
+
+
 def test_certifi_lazy_loading():
     global httpx, certifi
     import sys
