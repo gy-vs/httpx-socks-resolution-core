@@ -1,3 +1,5 @@
+import sys
+
 import httpcore
 import pytest
 
@@ -13,18 +15,88 @@ def url_to_origin(url: str) -> httpcore.URL:
     return httpcore.URL(scheme=u.raw_scheme, host=u.raw_host, port=u.port, target="/")
 
 
-def test_socks_proxy():
+@pytest.mark.parametrize("scheme", ["socks5", "socks5h"])
+def test_socks_proxy(scheme):
     url = httpx.URL("http://www.example.com")
 
-    client = httpx.Client(proxy="socks5://localhost/")
+    client = httpx.Client(proxy=f"{scheme}://localhost/")
     transport = client._transport_for_url(url)
     assert isinstance(transport, httpx.HTTPTransport)
     assert isinstance(transport._pool, httpcore.SOCKSProxy)
 
-    async_client = httpx.AsyncClient(proxy="socks5://localhost/")
+    async_client = httpx.AsyncClient(proxy=f"{scheme}://localhost/")
     async_transport = async_client._transport_for_url(url)
     assert isinstance(async_transport, httpx.AsyncHTTPTransport)
     assert isinstance(async_transport._pool, httpcore.AsyncSOCKSProxy)
+
+
+@pytest.mark.parametrize("scheme", ["socks5", "socks5h"])
+def test_socks_proxy_raw_scheme_is_passed_through(scheme):
+    # The original proxy scheme must be passed on to `httpcore` unchanged,
+    # so that `socks5h` proxies resolve target hostnames remotely.
+    transport = httpx.HTTPTransport(proxy=f"{scheme}://localhost:1080")
+    assert isinstance(transport._pool, httpcore.SOCKSProxy)
+    assert transport._pool._proxy_url.scheme == scheme.encode("ascii")
+    assert transport._pool._proxy_url.host == b"localhost"
+    assert transport._pool._proxy_url.port == 1080
+
+    async_transport = httpx.AsyncHTTPTransport(proxy=f"{scheme}://localhost:1080")
+    assert isinstance(async_transport._pool, httpcore.AsyncSOCKSProxy)
+    assert async_transport._pool._proxy_url.scheme == scheme.encode("ascii")
+    assert async_transport._pool._proxy_url.host == b"localhost"
+    assert async_transport._pool._proxy_url.port == 1080
+
+
+@pytest.mark.parametrize("scheme", ["socks5", "socks5h"])
+def test_socks_proxy_with_auth(scheme):
+    proxy = httpx.Proxy(url=f"{scheme}://user:pass@localhost:1080")
+    assert proxy.auth == ("user", "pass")
+    assert proxy.url == httpx.URL(f"{scheme}://localhost:1080")
+
+    transport = httpx.HTTPTransport(proxy=proxy)
+    assert isinstance(transport._pool, httpcore.SOCKSProxy)
+    assert transport._pool._proxy_auth == (b"user", b"pass")
+
+    async_transport = httpx.AsyncHTTPTransport(proxy=proxy)
+    assert isinstance(async_transport._pool, httpcore.AsyncSOCKSProxy)
+    assert async_transport._pool._proxy_auth == (b"user", b"pass")
+
+
+@pytest.mark.parametrize("scheme", ["socks5", "socks5h"])
+def test_socks_proxy_with_ipv6_address(scheme):
+    transport = httpx.HTTPTransport(proxy=f"{scheme}://[::1]:1080")
+    assert isinstance(transport._pool, httpcore.SOCKSProxy)
+    assert transport._pool._proxy_url.scheme == scheme.encode("ascii")
+    assert transport._pool._proxy_url.host == b"::1"
+    assert transport._pool._proxy_url.port == 1080
+
+    async_transport = httpx.AsyncHTTPTransport(proxy=f"{scheme}://[::1]:1080")
+    assert isinstance(async_transport._pool, httpcore.AsyncSOCKSProxy)
+    assert async_transport._pool._proxy_url.scheme == scheme.encode("ascii")
+    assert async_transport._pool._proxy_url.host == b"::1"
+    assert async_transport._pool._proxy_url.port == 1080
+
+
+@pytest.mark.parametrize("scheme", ["socks5", "socks5h"])
+@pytest.mark.parametrize(
+    "transport_class", [httpx.HTTPTransport, httpx.AsyncHTTPTransport]
+)
+def test_socks_proxy_without_socksio_installed(monkeypatch, scheme, transport_class):
+    # Both SOCKS schemes should raise the same clear error
+    # if the optional `socksio` dependency is not installed.
+    monkeypatch.setitem(sys.modules, "socksio", None)
+
+    with pytest.raises(ImportError) as exc_info:
+        transport_class(proxy=f"{scheme}://localhost:1080")
+    assert "pip install httpx[socks]" in str(exc_info.value)
+
+
+def test_socks_proxy_with_mounts():
+    url = httpx.URL("http://www.example.com")
+
+    proxy_transport = httpx.HTTPTransport(proxy="socks5h://localhost:1080")
+    client = httpx.Client(mounts={"all://": proxy_transport})
+    assert client._transport_for_url(url) is proxy_transport
 
 
 PROXY_URL = "http://[::1]"

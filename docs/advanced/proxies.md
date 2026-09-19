@@ -81,3 +81,11 @@ You can now configure a client to make requests via a proxy using the SOCKS prot
 ```python
 httpx.Client(proxy='socks5://user:pass@host:port')
 ```
+
+Using the `socks5://` scheme, DNS resolution for the target hostname happens on the client side. If you want the proxy server to resolve the target hostname instead, use the `socks5h://` scheme:
+
+```python
+httpx.Client(proxy='socks5h://user:pass@host:port')
+```
+
+This can be useful when the client is unable to resolve the target hostname itself, or when you want to avoid leaking DNS lookups to the local network.
